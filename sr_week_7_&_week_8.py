@@ -206,3 +206,110 @@ letting edges be [[1,2],[1,3],[2,4]]
 """
 
 solve(model, param)
+
+"""WEEK 8 LAB"""
+
+model = """
+language ESSENCE' 1.0
+letting   RANGE be domain int(1..9)
+letting   VALUES be domain int(0..9)
+
+given     values : matrix indexed by [RANGE,RANGE] of VALUES
+
+find      field: matrix indexed by [RANGE, RANGE] of RANGE
+
+such that
+  $ all rows have to be different
+  forAll row : RANGE .
+      allDiff(field[row,..]),
+
+  $ all columns have to be different
+  forAll col : RANGE .
+      allDiff(field[..,col]),
+
+  $ all 3x3 blocks have to be different
+  $ i, j are the coordinates of the upper-left corner of the 3x3 block.
+  $forAll i,j : int(1,4,7) .
+  $    forAll row1, row2 : int(i..i+2) .
+  $        forAll col1, col2 : int(j..j+2) .
+  $            ((col1 != col2) \/ (row1 != row2)) ->
+  $                field[row1, col1] != field[row2, col2],
+
+  forAll i,j : int(1,4,7) .
+    allDiff([ field[k,l] | k : int(i..i+2), l : int(j..j+2)]),
+
+
+  $ Set some initial values
+  forAll row,col : RANGE .
+      (values[row,col] > 0) ->
+          (field[row,col] = values[row,col])"""
+
+
+param = """
+language ESSENCE' 1.0
+letting values be [ [ 5, 3, 0, 0, 7, 0, 0, 0 ,0 ],
+                    [ 6, 0, 0, 1, 9, 5, 0, 0, 0 ],
+                    [ 0, 9, 8, 0, 0, 0, 0, 6, 0 ],
+                    [ 8, 0, 0, 0, 6, 0, 0, 0, 3 ],
+                    [ 4, 0, 0, 8, 0, 3, 0, 0, 1 ],
+                    [ 7, 0, 0, 0, 2, 0, 0, 0, 6 ],
+                    [ 0, 6, 0, 0, 0, 0, 2, 8, 0 ],
+                    [ 0, 0, 0, 4, 1, 9, 0, 0, 5 ],
+                    [ 0, 0, 0, 0, 8, 0, 0, 7, 9 ]]
+"""
+
+
+solve(model, param)
+
+#Modelling Winner Determination Problem (Combinatorial Auction)
+model = """
+language ESSENCE' 1.0
+
+given nItems : int(1..)
+given nBids : int(1..)
+
+$  For each bid b, price[b] is the amount of money offered.
+given price : matrix indexed by [int(1..nBids)] of int(0..)
+
+$  For each bid b, bids[b, ..] is the occurrence representation of the set of items.
+given bids : matrix indexed by [int(1..nBids), int(1..nItems)] of bool
+
+$  Occurrence representation of the set of accepted bids.
+find accepted : matrix indexed by [int(1..nBids)] of bool
+
+maximising sum([ price[i]*accepted[i] | i : int(1..nBids) ])
+
+$ Alternative with sum quantifier instead of a comprehension:
+$maximising sum i : int(1..nBids) . price[i]*accepted[i]
+
+such that
+
+forAll i : int(1..nBids).
+  forAll j : int(1..nBids) .
+    i<j ->
+      (
+        (sum k : int(1..nItems). (bids[i,k] /\ bids[j,k]) )!=0 ->
+            !(accepted[i] /\ accepted[j])
+        $ Alternative with exists instead of sum:
+        $(exists k : int(1..nItems). (bids[i,k] /\ bids[j,k]) ) ->
+        $   !(accepted[i] /\ accepted[j])
+      )
+
+
+"""
+param = """
+language ESSENCE' 1.0
+
+letting nItems = 4
+letting nBids = 4
+
+letting price = [10,12,13,20]
+
+letting bids=
+[[true,true,false,true],
+[false, false, true, false],
+[true, false, false, true],
+[true, true, true, true]]
+"""
+
+solve(model, param)
