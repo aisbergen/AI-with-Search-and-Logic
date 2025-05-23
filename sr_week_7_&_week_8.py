@@ -318,68 +318,62 @@ solve(model, param)
 model = """
 language ESSENCE' 1.0
 
-given t:int
+letting horizon=12
 
-find  actions : matrix indexed by [int(1..t)] of int(1..4) $pick_up,move, put down,go back
-find robot_location: matrix indexed by [int(1..t)] of int(0..1) $which room robot is in
-find balls_room: matrix indexed by [int(1..t), int(1..4)] of int(0..1) $balls in room 0 and 1
-find robot_balls: matrix indexed by [int(1..t), int(1..4)] of int(0..1) $balls in robot hand
+$  State of robot
+
+$  -- the room the robot is in at each timestep
+find room : matrix indexed by [int(1..horizon)] of int(1..2)
+
+$  -- how many balls the robot is carrying
+find carrying : matrix indexed by [int(1..horizon)] of int(0..2)
+
+$  State of the environment
+
+find ballsInRoom : matrix [int(1..horizon), int(1..2)] of int(0..4)
+
+$  Action   1: pick up,  2: put down, 3: move
+$  No need for a 'no-op' action in this case -- the robot can repeatedly use the 'move' action once the goal has been achieved. 
+
+find action : matrix [int(1..horizon-1)] of int(1..3)
 
 such that
 
-$pick up, put down, move
+$ Set up initial state
+room[1]=1,
+carrying[1]=0,
+ballsInRoom[1,1]=4,
+ballsInRoom[1,2]=0,
 
-$1 action at a time
-$when robot moves he can't pick up/put down
-$
-forAll i : int(1..t) . $1 action at a time
+$ The 'pick up' action
+forAll t : int(1..horizon-1).
+    action[t]=1 -> (
+        carrying[t+1]=carrying[t]+1  /\   $  Carrying one additional ball
+        room[t+1]=room[t]  /\             $  Stays in same room
+        ballsInRoom[t+1, room[t]]=ballsInRoom[t, room[t]]-1 /\     $  Number of balls in robot's room is reduced by 1
+        ballsInRoom[t+1, 3-room[t]]=ballsInRoom[t, 3-room[t]]      $  Number of balls in other room stays the same
+    ),
 
-  actions[i]=1, $pick up
+$ The 'put down' action
+forAll t : int(1..horizon-1).
+    action[t]=2 -> (
+        carrying[t+1]=carrying[t]-1  /\
+        room[t+1]=room[t]  /\
+        ballsInRoom[t+1, room[t]]=ballsInRoom[t, room[t]]+1 /\
+        ballsInRoom[t+1, 3-room[t]]=ballsInRoom[t, 3-room[t]]
+    ),
 
+$ The 'move' action
+forAll t : int(1..horizon-1).
+    action[t]=3 -> (
+        carrying[t+1]=carrying[t]  /\
+        room[t+1]=3-room[t]  /\
+        ballsInRoom[t+1, 1]=ballsInRoom[t, 1] /\
+        ballsInRoom[t+1, 2]=ballsInRoom[t, 2]
+    ),
 
-    $but no more 2 balls for robot hand
-    forAll i,j : robot_balls .  $but no more 2 balls for robot hand
-      sum([ toInt(robot_balls[i,j]) | j : int(1..4)]) <= 2
-
-    forAll i : int(1..t-1) .
-    forAll j : int(1..4) .
-      balls_room[i+2, j] = balls_room[i, j] - toInt(robot_balls[i, j]) $reduces balls in room 1
-
-
-  actions[i]=2, $move to room 1
-    $when robot moves he can't pick up/put down
-
-    forAll location : int(0..1) .
-      robot_location=1
-
-  actions[i]=3, $put down
-   forAll i : int(1..t), j : int(1..4) .
-    robot_balls[i,j] = 0
-    forAll i,j : robot_balls .
-      sum([ toInt(robot_balls[i,j]) | j : int(1..4)]) <= 0 $dropping balls
-      balls_room[i,j] = balls_room[i+2,j] - toInt(robot_balls[i,j])
-
-  actions[i]=4, $move, go back to room 0
-    $when robot moves he can't pick up/put down
-    forAll location : int(0..1) .
-      robot_location=0
-
-  forAll i : int(1..t) .
-  (actions[i] = 2 \/ actions[i] = 4) ->
-    (sum([robot_balls[i,j] | j : int(1..4)]) = sum([robot_balls[i-1,j] | j : int(1..4)]))
-
-
-  sum([ toInt(actions[i] = 1) * toInt(robot_balls[i,j] = 1) | j : int(1..4)]) <= 2 $no more than 2 balls in robot hand
-
-(actions[i]=2 \/ actions[i]=4) -> $When Robot Moves, Cannot Pick or Drop
-  (
-    forAll j : int(1..4) .
-      robot_balls[i,j]=robot_balls[i-1,j]
-  )
-
-
-forAll i : int(1..t) . $"If the action at step i is pick-up, then robot must be in room 0."
-    (actions[i] = 1) -> (robot_location[i] = 0)
+$ The goal -- all balls are in room 2
+ballsInRoom[horizon,2]=4
 
 
 
@@ -390,6 +384,5 @@ forAll i : int(1..t) . $"If the action at step i is pick-up, then robot must be 
 param = """
 language ESSENCE' 1.0
 
-letting t = 100
 
 solve(model, param)
